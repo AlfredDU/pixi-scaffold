@@ -1,20 +1,24 @@
-///<reference path="./default.d.ts" />
+/** main scene */
+// imports
+import * as PIXI from 'pixi.js'
 import Lambda from './Lambda'
+
+// import assets
+import PIXI_LOGO_IMG from '/images/pixi.js.png'
+
 
 /** constants */
 // label; id
 const SPRITE_NAME = 'my_sprite'
 
-// assets; use 'require' for webpack packing work
-const PIXI_LOGO_URL = require('../images/pixi.js.png')
-
 // scalar
-const SPRITE_SIZE_x = 64  // suffix with '_x' means it needs to be multiplied by dpr
+const BACKGROUND_COLOR = 0xe7eced
+const SPRITE_SIZE_ = 64  // suffix with '_' means it needs to be multiplied by dpr
 
 
-/** Main scene. */
+/** `Scene` class */
 export default class Scene {
-    // properties
+    /** properties */
     canvas: HTMLCanvasElement
     width: number
     height: number
@@ -23,31 +27,25 @@ export default class Scene {
     app: PIXI.Application
     rect: PIXI.Rectangle
 
-    sprite: PIXI.Sprite
+    sprite?: PIXI.Sprite
+    assets: Record<string, string> = {}
 
-    // for convenience
-    get stage(): PIXI.Container {
-        if (this.app === undefined) {
-            return undefined
+    /** convenience getters */
+    get stage(): PIXI.Container { return this.app.stage }
+
+    static get bundle(): { name: string, assets: Record<string, string> } {
+        return {
+            name: 'default',
+            assets: {
+                pixi_logo: PIXI_LOGO_IMG,
+            }
         }
-
-        return this.app.stage
     }
 
-    get interaction(): PIXI.interaction.InteractionManager {
-        return this.app.renderer.plugins.interaction
-    }
-
-    static get assets(): Array<string> {
-        return [
-            PIXI_LOGO_URL
-        ]
-    }
-
-    // constructor
+    /** constructor */ 
     constructor(render_canvas: HTMLCanvasElement) {
-        // dimension; mind the retina display
-        this.dpr = Lambda.device_dpr()
+        // dimension; notice the device pixel ratio
+        this.dpr = Lambda.device_dpr
         this.width = window.innerWidth * this.dpr
         this.height = window.innerHeight * this.dpr
 
@@ -56,58 +54,46 @@ export default class Scene {
         render_canvas.height = this.height
         this.canvas = render_canvas
 
-        // skip hello
-        PIXI.utils.skipHello()
-
         // create a PIXI Application
         this.app = new PIXI.Application({
             width: this.width,
             height: this.height,
             antialias: true,
-            // resolution: this.dpr,
             view: this.canvas,
-            forceCanvas: true,  // force canvas instead of webgl
-            backgroundColor: 0xe7eced
+            // forceCanvas: true,  // force canvas instead of webgl
+            backgroundColor: BACKGROUND_COLOR
         })
 
         this.rect = new PIXI.Rectangle(
             0, 0, this.width, this.height
         )
 
-        // load asset progress
-        PIXI.loader.add(Scene.assets)
-            .on('progress', (loader, resource) => {
-                //Display the file `url` currently being loaded
-                console.log("loading: " + resource.url)
+        // load assets
+        PIXI.Assets.addBundle(Scene.bundle.name, Scene.bundle.assets)
+        PIXI.Assets.loadBundle(Scene.bundle.name).then(loaded_assets => {
+            // assets loaded
+            this.assets = loaded_assets
 
-                //Display the percentage of files currently loaded
-                console.log("progress: " + loader.progress + "%")
-            })
+            // init
+            this.init()
 
-            // create fire sprite
-            .load(() => {
-                // init
-                this.init()
+            // set gesture recognizer
+            this.create_interaction()
 
-                // set gesture recognizer
-                this.create_gesture()
-
-                // bind game loop
-                // this.bind_loop()
-            })
+            // bind game loop
+            this.bind_loop()
+        })
     }
 
-    // draw
+    // initial draw
     init(): void {
         // create sprite
-        this.sprite = new PIXI.Sprite(
-            PIXI.loader.resources[PIXI_LOGO_URL].texture
-        )
+        this.sprite = PIXI.Sprite.from(this.assets['pixi_logo'])
         this.sprite.name = SPRITE_NAME
 
         // set size
-        this.sprite.width = SPRITE_SIZE_x * this.dpr
-        this.sprite.height = SPRITE_SIZE_x * this.dpr
+        this.sprite.width = SPRITE_SIZE_ * this.dpr
+        this.sprite.height = SPRITE_SIZE_ * this.dpr
 
         // set anchor to center instead of left-top
         this.sprite.anchor.set(0.5, 0.5)
@@ -116,7 +102,7 @@ export default class Scene {
         this.sprite.position.set(this.width / 2, this.height / 2)
 
         // interactivity
-        this.sprite.interactive = true
+        this.sprite.eventMode = 'static'
 
         // show
         this.stage.addChild(this.sprite)
@@ -129,23 +115,9 @@ export default class Scene {
     }
 
     // gesture recognizer using hammer js
-    create_gesture(): void {
-        const recognizer_manager = new Hammer.Manager(this.canvas)
-
-        // Add Tap gesture recognizer
-        recognizer_manager.add(new Hammer.Tap({}))
-        recognizer_manager.on('tap', (e) => {
-            this.on_tap(e.center.x * this.dpr, e.center.y * this.dpr)
+    create_interaction(): void {
+        this.sprite!.on('tap', e => {
+            console.log('Sprite is tapped!')
         })
-    }
-
-    // tap callback
-    on_tap(x: number, y: number): void {
-        const hit = this.interaction.hitTest(new PIXI.Point(x, y))
-
-        if (hit) {
-            console.log(hit.name)
-        }
-
     }
 }
