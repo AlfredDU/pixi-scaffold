@@ -114,7 +114,7 @@ export default class Scene {
         })
     }
 
-    // gesture recognizer using hammer js
+    // interaction recognizer
     create_interaction(): void {
         this.sprite!.on('tap', e => {
             console.log('Sprite is tapped!')
